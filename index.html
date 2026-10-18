@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trade Charge Splitter</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+:root{--bg:#0b0f14;--panel:#111820;--line:#273442;--text:#eaf1f7;--muted:#9aabba;--accent:#49ff8f;--warn:#ffcc66}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 Inter,system-ui,Arial,sans-serif}
+main{max-width:1250px;margin:auto;padding:28px 18px 60px}h1{font-size:clamp(25px,4vw,38px);margin:0 0 5px}h1 span{color:var(--accent)}.sub{color:var(--muted);margin:0 0 24px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;margin:16px 0}
+.drop{border:1px dashed #52705f;border-radius:12px;padding:24px;text-align:center;background:#0e151b}.drop strong{display:block;font-size:18px}.drop p{color:var(--muted);margin:6px 0 14px}
+input[type=file]{max-width:100%;color:var(--muted)}button{background:var(--accent);color:#06140b;border:0;border-radius:9px;padding:10px 15px;font-weight:750;cursor:pointer}button.secondary{background:#243341;color:var(--text)}button:disabled{opacity:.45;cursor:not-allowed}
+.status{margin-top:12px;color:var(--muted);white-space:pre-wrap}.warning{color:var(--warn)}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.metric{background:#0d141b;border:1px solid var(--line);border-radius:12px;padding:14px}.metric small{color:var(--muted);display:block}.metric b{font-size:21px;display:block;margin-top:4px}
+.tablewrap{overflow:auto}table{border-collapse:collapse;width:100%;min-width:900px;font-size:13px}th,td{border-bottom:1px solid var(--line);padding:10px 9px;text-align:right;white-space:nowrap}th{color:#b9c8d6;background:#0d141b}td:first-child,th:first-child,td:nth-child(2),th:nth-child(2){text-align:left}
+.section-title{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}h2{font-size:19px;margin:0 0 12px}.pill{border:1px solid var(--line);border-radius:99px;padding:3px 9px;color:var(--muted);font-size:12px}
+.note{color:var(--muted);font-size:13px}.good{color:var(--accent)}.hidden{display:none}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+@media(max-width:600px){main{padding:18px 10px}.panel{padding:12px}}
+</style>
+</head>
+<body>
+<main>
+  <h1>Trade <span>Charge Splitter</span></h1>
+  <p class="sub">Upload a broker contract-note / trade-details PDF to split buy and sell charges stock by stock.</p>
+  <section class="panel">
+    <div class="drop">
+      <strong>Choose your PDF</strong>
+      <p>Runs in this browser. Text-based PDFs work best; scanned PDFs may not be readable.</p>
+      <input id="pdfFile" type="file" accept="application/pdf">
+      <div class="actions" style="justify-content:center"><button id="analyzeBtn">Read PDF & calculate</button><button id="demoBtn" class="secondary">Load example from your PDF</button></div>
+      <div id="status" class="status">No PDF analyzed yet.</div>
+    </div>
+  </section>
+  <section id="results" class="hidden">
+    <div class="panel"><div class="section-title"><h2>Bill totals</h2><span class="pill" id="billMeta">—</span></div><div class="cards" id="summaryCards"></div><p class="note" id="summaryNote"></p></div>
+    <div class="panel"><h2>Stock-wise charges</h2><div id="stockBreakdowns"></div><div class="actions"><button id="csvBtn">Export CSV</button><button id="printBtn" class="secondary">Print / Save PDF</button><button id="resetBtn" class="secondary">Clear</button></div></div>
+  </section>
+  <section class="panel">
+    <h2>Important accuracy note</h2>
+    <p class="note">The PDF parser extracts text and then matches common trade-bill patterns. Always compare the extracted figures with the original PDF. Some brokers put tax totals at bill level rather than per stock, so the app distributes those shared charges by turnover; that distribution is not an official broker calculation. This version does not calculate capital-gains tax or income tax.</p>
+  </section>
+</main>
+<script>
+if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+const $ = id => document.getElementById(id);
+let output = null;
+const money = n => '₹' + (Number(n)||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
+const num = s => { if(s==null)return 0; let n=String(s).replace(/,/g,'').replace(/[₹\s]/g,''); return Number(n)||0; };
+const round = n => Math.round((n+Number.EPSILON)*100)/100;
+function setStatus(s, warning=false){$('status').textContent=s;$('status').className='status'+(warning?' warning':'')}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function readTradeRows(text){
+  const rows=[];
+  // Pattern for the broker's line format: name heading followed by NSE, transaction code, then numeric columns.
+  const lines=text.split(/\n/).map(x=>x.trim()).filter(Boolean);
+  let currentName='', currentIsin='';
+  for(let i=0;i<lines.length;i++){
+    const l=lines[i];
+    const isin=l.match(/\b(IN[A-Z0-9]{9,11})\b/);
+    if(isin){currentIsin=isin[1]; const tail=l.slice((isin.index||0)+isin[0].length).trim(); let next=lines[i+1]||''; if(tail && !/^(NSE|BSE)\b/i.test(tail)) currentName=tail; else if(next && !/^(NSE|BSE)\b/i.test(next)) currentName=next;}
+    const m=l.match(/^(NSE|BSE)\s+([A-Z])\s+([\d,]+(?:\.\d+)?)\s+([\d,]+(?:\.\d+)?)\s+([\d,]+(?:\.\d+)?)\s+([\d,]+(?:\.\d+)?)(?:\s+([\d,]+(?:\.\d+)?)\s+([\d,]+(?:\.\d+)?)\s+([\d,]+(?:\.\d+)?)\s+([\d,]+(?:\.\d+)?))?/i);
+    if(m && currentName){
+      const vals=m.slice(3).map(num);
+      const side = vals.length>=8 && vals[4]>0 ? 'mixed' : 'sell';
+      // Bill layout is sell qty/rate/brokerage/credit then buy qty/rate/brokerage/debit.
+      const sell={qty:vals[0]||0,rate:vals[1]||0,brokerage:vals[2]||0,gross:vals[3]||0};
+      const buy={qty:vals[4]||0,rate:vals[5]||0,brokerage:vals[6]||0,gross:vals[7]||0};
+      if(sell.qty) rows.push({name:currentName,isin:currentIsin,side:'Sell',...sell,turnover:sell.qty*sell.rate});
+      if(buy.qty) rows.push({name:currentName,isin:currentIsin,side:'Buy',...buy,turnover:buy.qty*buy.rate});
+    }
+  }
+  return rows;
+}
+function parseCharges(text){
+  const labels=[
+    ['Security Transaction Tax',/Security Transaction Tax\s+(-?[\d,]+(?:\.\d+)?)/i],
+    ['Transaction Charges',/Transaction Charges\s+(-?[\d,]+(?:\.\d+)?)/i],
+    ['Round of Amount',/Round of Amount\s+(-?[\d,]+(?:\.\d+)?)/i],
+    ['Stamp Duty',/Stamp Duty\s+(-?[\d,]+(?:\.\d+)?)/i],
+    ['SEBI Charges',/Sebi Charges\s+(-?[\d,]+(?:\.\d+)?)/i],
+    ['CGST',/CGST\s+(-?[\d,]+(?:\.\d+)?)/i],
+    ['SGST',/SGST\s+(-?[\d,]+(?:\.\d+)?)/i],
+    ['IGST',/IGST\s+(-?[\d,]+(?:\.\d+)?)/i]
+  ];
+  const charges={}; for(const [name,re] of labels){const m=text.match(re); if(m)charges[name]=num(m[1]);}
+  return charges;
+}
+function render(data){
+ output=data; $('results').classList.remove('hidden');
+ const buys=data.rows.filter(r=>r.side==='Buy'), sells=data.rows.filter(r=>r.side==='Sell');
+ const buyTurn=buys.reduce((s,r)=>s+r.turnover,0), sellTurn=sells.reduce((s,r)=>s+r.turnover,0);
+ const buyBr=buys.reduce((s,r)=>s+r.brokerage,0), sellBr=sells.reduce((s,r)=>s+r.brokerage,0);
+ const charges=data.charges, commonTotal=Object.values(charges).reduce((a,b)=>a+b,0);
+ const totalTurn=buyTurn+sellTurn;
+ const totalDebit=buys.reduce((s,r)=>s+r.gross,0), totalCredit=sells.reduce((s,r)=>s+r.gross,0);
+ const net=data.net!=null?data.net:(totalCredit-totalDebit-commonTotal);
+ $('billMeta').textContent=(data.billNo||'Bill number not detected')+(data.tradeDate?' · '+data.tradeDate:'');
+ const metrics=[['Buy turnover',money(buyTurn)],['Sell turnover',money(sellTurn)],['Buy brokerage',money(buyBr)],['Sell brokerage',money(sellBr)],['Total shared charges',money(commonTotal)],['Net receivable / (payable)',money(net)]];
+ $('summaryCards').innerHTML=metrics.map(([a,b])=>`<div class="metric"><small>${escapeHtml(a)}</small><b>${escapeHtml(b)}</b></div>`).join('');
+ $('summaryNote').textContent=`Detected ${data.rows.length} trade rows. Review each stock and side below.`;
+ const groups={}; data.rows.forEach(r=>{const key=r.name+'|'+r.side;(groups[key]||(groups[key]=[])).push(r);});
+ $('stockBreakdowns').innerHTML=Object.values(groups).map(items=>{
+   const r=items[0], turnover=items.reduce((s,x)=>s+x.turnover,0), brokerage=items.reduce((s,x)=>s+x.brokerage,0);
+   const share=totalTurn?turnover/totalTurn:0;
+   const allocated=commonTotal*share;
+   // Keep every PDF trade row separate: do not merge different prices / transaction codes.
+   return items.map((trade,index)=>{
+     const tradeShare=totalTurn?trade.turnover/totalTurn:0;
+     const tradeCommon=commonTotal*tradeShare;
+     const rows=[['Transaction',trade.side],['Quantity',trade.qty.toLocaleString('en-IN')],['Rate',money(trade.rate)],['Trade value',money(trade.turnover)],['Brokerage',money(trade.brokerage)]];
+     Object.entries(charges).forEach(([name,value])=>rows.push([name,money(value*tradeShare)]));
+     const total=trade.brokerage+tradeCommon;
+     rows.push(['TOTAL CHARGES',money(total)]);
+     rows.push([trade.side==='Buy'?'Estimated buy cost incl. charges':'Estimated sell proceeds after charges',money(trade.side==='Buy'?trade.gross+tradeCommon:trade.gross-tradeCommon)]);
+     return `<div class="panel" style="background:#0d141b;margin:12px 0"><div class="section-title"><h2 style="margin:0">${escapeHtml(trade.name||r.name)}</h2><span class="pill">${trade.side.toUpperCase()} · Trade ${index+1}</span></div><div class="tablewrap"><table style="min-width:0"><thead><tr><th style="text-align:left">Charge / detail</th><th>Amount</th></tr></thead><tbody>${rows.map(([k,v])=>`<tr><td style="text-align:left">${escapeHtml(k)}</td><td>${escapeHtml(v)}</td></tr>`).join('')}</tbody></table></div></div>`;
+   }).join('');
+ }).join('');
+ data.calculated={commonTotal,buyTurn,sellTurn,buyBr,sellBr,net};
+}
+async function analyze(){
+ const file=$('pdfFile').files[0]; if(!file){setStatus('Choose a PDF first.',true);return;}
+ if(!window.pdfjsLib){setStatus('PDF reader library did not load. Check internet connection and reload this page.',true);return;}
+ try{
+  setStatus('Reading PDF…'); const buf=await file.arrayBuffer();const pdf=await pdfjsLib.getDocument({data:buf}).promise;let text='';
+  for(let p=1;p<=pdf.numPages;p++){const page=await pdf.getPage(p);const content=await page.getTextContent();const grouped={};for(const item of content.items){if(!item.str||!item.str.trim())continue;const y=Math.round(item.transform[5]);(grouped[y]||(grouped[y]=[])).push({x:item.transform[4],s:item.str.trim()});}text+=Object.keys(grouped).sort((a,b)=>b-a).map(y=>grouped[y].sort((a,b)=>a.x-b.x).map(o=>o.s).join(' ')).join('\n')+'\n';}
+  const rows=readTradeRows(text); const charges=parseCharges(text);
+  const netMatch=text.match(/Net Total Payable\s*\(-\)\s*\/?\s*Receivable\s*\(\+\)\s*For You\s+(-?[\d,]+(?:\.\d+)?)/i);
+  const bill=text.match(/Bill No\.?\s+([A-Z0-9]+)/i), date=text.match(/Trade Date\s+(\d{1,2}\/\d{1,2}\/\d{4})/i);
+  if(!rows.length){setStatus('Could not confidently detect stock rows. This PDF may be scanned or use a different layout. Try the example button to see how the report works.',true);return;}
+  render({rows,charges,net:netMatch?num(netMatch[1]):null,billNo:bill?bill[1]:'',tradeDate:date?date[1]:''});
+  setStatus(`Read ${pdf.numPages} page(s). Detected ${rows.length} buy/sell rows and ${Object.keys(charges).length} charge types. Check the figures against the PDF before relying on them.`);
+ }catch(e){console.error(e);setStatus('Could not read PDF: '+e.message,true);}
+}
+function demo(){
+ const rows=[
+ {name:'AZAD ENGINEERING LIMITED',isin:'INE02IJ01035',side:'Sell',qty:20,rate:2988.5,brokerage:12,gross:59758,turnover:59770},
+ {name:'AZAD ENGINEERING LIMITED',isin:'INE02IJ01035',side:'Sell',qty:20,rate:3010,brokerage:120.4,gross:60079.6,turnover:60200},
+ {name:'AZAD ENGINEERING LIMITED',isin:'INE02IJ01035',side:'Buy',qty:20,rate:2965,brokerage:11.8,gross:59311.8,turnover:59300},
+ {name:'MONEYVIEW LIMITED',isin:'INE0PTN01011',side:'Sell',qty:200,rate:64.5,brokerage:26,gross:12874,turnover:12900}
+ ];
+ // Turnover is price x quantity; gross credit/debit can be net of brokerage in the PDF.
+ rows.forEach(r=>r.turnover=r.qty*r.rate);
+ render({rows,charges:{'Security Transaction Tax':88,'Transaction Charges':5.9,'Round of Amount':-0.03,'Stamp Duty':2,'SEBI Charges':0.19,'CGST':15.87,'SGST':15.87},net:73272,billNo:'CAPOBL 00012033',tradeDate:'12/10/2026'});
+ setStatus('Loaded sample values read from your uploaded PDF. This is a demo; it does not read the selected file.');
+}
+function exportCsv(){
+ if(!output)return;
+ const rows=[['Stock','Side','Quantity','Rate','Turnover','Brokerage','Allocated shared charges','Estimated total charges','Gross debit/credit','Net buy cost/sell proceeds']];
+ const total=output.rows.reduce((s,r)=>s+r.turnover,0), common=Object.values(output.charges).reduce((a,b)=>a+b,0);
+ output.rows.forEach(r=>{const c=total?r.turnover/total*common:0;rows.push([r.name,r.side,r.qty,r.rate,r.turnover,r.brokerage,c,r.brokerage+c,r.gross,r.side==='Buy'?r.gross+c:r.gross-c]);});
+ const csv=rows.map(row=>row.map(x=>'"'+String(x).replace(/"/g,'""')+'"').join(',')).join('\r\n');
+ const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'}));a.download='trade-charge-breakdown.csv';a.click();URL.revokeObjectURL(a.href);
+}
+$('analyzeBtn').addEventListener('click',analyze);$('demoBtn').addEventListener('click',demo);$('csvBtn').addEventListener('click',exportCsv);$('printBtn').addEventListener('click',()=>window.print());$('resetBtn').addEventListener('click',()=>{output=null;$('results').classList.add('hidden');$('pdfFile').value='';setStatus('Cleared. Choose another PDF.');});
+</script>
+</body></html>
