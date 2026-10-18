@@ -3,34 +3,67 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Trade Charge Splitter</title>
+<title>TradeLedger — Stock Charge Analyzer</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
-:root{--bg:#0b0f14;--panel:#111820;--line:#273442;--text:#eaf1f7;--muted:#9aabba;--accent:#49ff8f;--warn:#ffcc66}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 Inter,system-ui,Arial,sans-serif}
-main{max-width:1250px;margin:auto;padding:28px 18px 60px}h1{font-size:clamp(25px,4vw,38px);margin:0 0 5px}h1 span{color:var(--accent)}.sub{color:var(--muted);margin:0 0 24px}
-.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;margin:16px 0}
-.drop{border:1px dashed #52705f;border-radius:12px;padding:24px;text-align:center;background:#0e151b}.drop strong{display:block;font-size:18px}.drop p{color:var(--muted);margin:6px 0 14px}
-input[type=file]{max-width:100%;color:var(--muted)}button{background:var(--accent);color:#06140b;border:0;border-radius:9px;padding:10px 15px;font-weight:750;cursor:pointer}button.secondary{background:#243341;color:var(--text)}button:disabled{opacity:.45;cursor:not-allowed}
-.status{margin-top:12px;color:var(--muted);white-space:pre-wrap}.warning{color:var(--warn)}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
-.metric{background:#0d141b;border:1px solid var(--line);border-radius:12px;padding:14px}.metric small{color:var(--muted);display:block}.metric b{font-size:21px;display:block;margin-top:4px}
-.tablewrap{overflow:auto}table{border-collapse:collapse;width:100%;min-width:900px;font-size:13px}th,td{border-bottom:1px solid var(--line);padding:10px 9px;text-align:right;white-space:nowrap}th{color:#b9c8d6;background:#0d141b}td:first-child,th:first-child,td:nth-child(2),th:nth-child(2){text-align:left}
-.section-title{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}h2{font-size:19px;margin:0 0 12px}.pill{border:1px solid var(--line);border-radius:99px;padding:3px 9px;color:var(--muted);font-size:12px}
-.note{color:var(--muted);font-size:13px}.good{color:var(--accent)}.hidden{display:none}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
-@media(max-width:600px){main{padding:18px 10px}.panel{padding:12px}}
+:root{--bg:#080b10;--panel:#10161f;--panel2:#0c1118;--line:#26313f;--text:#edf3f8;--muted:#8e9bab;--accent:#a3ffbf;--accent-ink:#07150c;--warn:#ffcc78}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(ellipse at 12% 0%,rgba(59,105,83,.13),transparent 38%),var(--bg);color:var(--text);font:14px/1.55 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;letter-spacing:.005em}
+main{max-width:1120px;margin:auto;padding:34px 22px 72px}
+.brandline{display:flex;align-items:center;gap:10px;margin-bottom:27px}
+.brandmark{width:34px;height:34px;display:grid;place-items:center;background:var(--accent);color:var(--accent-ink);border-radius:10px;font-size:12px;font-weight:900;letter-spacing:-.04em}
+.brandname{font-size:12px;font-weight:850;letter-spacing:.16em}
+.brandtag{font-size:10px;color:var(--muted);letter-spacing:.14em;border-left:1px solid var(--line);padding-left:10px;margin-left:2px}
+h1{font-size:clamp(30px,5vw,48px);letter-spacing:-.055em;line-height:1.08;margin:0 0 12px;font-weight:760}
+h1 span{color:var(--accent)}
+.sub{color:var(--muted);font-size:15px;max-width:660px;margin:0 0 30px}
+.panel{background:linear-gradient(145deg,rgba(17,24,34,.96),rgba(12,17,24,.98));border:1px solid var(--line);border-radius:18px;padding:22px;margin:16px 0;box-shadow:0 12px 38px rgba(0,0,0,.12)}
+.drop{border:1px dashed #43564d;border-radius:14px;padding:34px 20px;text-align:center;background:linear-gradient(135deg,rgba(163,255,191,.035),rgba(12,17,24,.5));transition:border-color .2s,background .2s}
+.drop.dragover{border-color:var(--accent);background:rgba(163,255,191,.07)}
+.upload-icon{width:46px;height:46px;margin:0 auto 14px;border:1px solid #34463d;border-radius:14px;display:grid;place-items:center;color:var(--accent);font-size:22px}
+.drop strong{display:block;font-size:17px;font-weight:700;letter-spacing:-.02em}
+.drop p{color:var(--muted);margin:7px 0 18px}
+input[type=file]{display:block;margin:0 auto 14px;max-width:100%;color:var(--muted);font-size:13px}
+button{background:var(--accent);color:var(--accent-ink);border:1px solid transparent;border-radius:10px;padding:11px 16px;font-size:13px;font-weight:800;cursor:pointer;transition:transform .15s,filter .15s}
+button:hover{filter:brightness(1.05);transform:translateY(-1px)}
+button.secondary{background:#18222e;color:var(--text);border-color:#2d3b4b}
+button:disabled{opacity:.45;cursor:not-allowed}
+.status{margin-top:16px;color:var(--muted);font-size:12px;white-space:pre-wrap}
+.warning{color:var(--warn)}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:10px}
+.metric{background:var(--panel2);border:1px solid var(--line);border-radius:13px;padding:15px}
+.metric small{color:var(--muted);display:block;font-size:11px;letter-spacing:.035em}
+.metric b{font-size:20px;display:block;margin-top:6px;letter-spacing:-.035em;font-variant-numeric:tabular-nums}
+.tablewrap{overflow:auto}
+table{border-collapse:collapse;width:100%;min-width:900px;font-size:13px}
+th,td{border-bottom:1px solid var(--line);padding:12px 11px;text-align:right;white-space:nowrap}
+th{color:#a9b8c9;background:#0c1219;font-size:11px;text-transform:uppercase;letter-spacing:.07em}
+td:first-child,th:first-child,td:nth-child(2),th:nth-child(2){text-align:left}
+.section-title{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+h2{font-size:17px;letter-spacing:-.025em;margin:0 0 15px}
+.pill{border:1px solid #334355;border-radius:99px;padding:5px 10px;color:#b5c5d4;font-size:10px;font-weight:750;letter-spacing:.07em}
+.note{color:var(--muted);font-size:12px;line-height:1.65}
+.good{color:var(--accent)}
+.hidden{display:none}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
+#stockBreakdowns>.panel{border-radius:14px}
+#stockBreakdowns h2{font-size:16px}
+#stockBreakdowns tr:last-child td{font-weight:800;color:var(--accent);border-bottom:0}
+@media(max-width:600px){main{padding:22px 12px 45px}.panel{padding:15px;border-radius:15px}.drop{padding:26px 12px}.brandtag{display:none}.metric b{font-size:18px}}
+@media print{body{background:white;color:#111}main{max-width:none;padding:0}.panel{box-shadow:none;background:white;border-color:#ddd;break-inside:avoid}.note,.sub{color:#555}button,.drop,#pdfFile{display:none!important}h1 span{color:#111}td,th{color:#111;border-color:#ddd}th{background:#eee}.metric{background:white;border-color:#ddd}.metric small{color:#555}.metric b{color:#111}}
 </style>
 </head>
 <body>
 <main>
-  <h1>Trade <span>Charge Splitter</span></h1>
-  <p class="sub">Upload a broker contract-note / trade-details PDF to split buy and sell charges stock by stock.</p>
+  <div class="brandline"><span class="brandmark">TL</span><span class="brandname">TRADELEDGER</span><span class="brandtag">TRADE ANALYTICS</span></div><h1>Stock charge <span>analyzer.</span></h1>
+  <p class="sub">A clean, stock-by-stock breakdown of brokerage, taxes and transaction costs from your broker statements.</p>
   <section class="panel">
     <div class="drop">
-      <strong>Choose your PDF</strong>
-      <p>Runs in this browser. Text-based PDFs work best; scanned PDFs may not be readable.</p>
-      <input id="pdfFile" type="file" accept="application/pdf">
-      <div class="actions" style="justify-content:center"><button id="analyzeBtn">Read PDF & calculate</button><button id="demoBtn" class="secondary">Load example from your PDF</button></div>
-      <div id="status" class="status">No PDF analyzed yet.</div>
+      <div class="upload-icon">↥</div><strong>Import contract notes</strong>
+      <p>Drop in one or multiple PDF files. Your statements are processed locally in this browser.</p>
+      <input id="pdfFile" type="file" accept="application/pdf" multiple>
+      <div class="actions" style="justify-content:center"><button id="analyzeBtn">Read PDF & calculate</button></div>
+      <div id="status" class="status">Ready when you are. Select one or more PDF files to begin.</div>
     </div>
   </section>
   <section id="results" class="hidden">
@@ -38,7 +71,7 @@ input[type=file]{max-width:100%;color:var(--muted)}button{background:var(--accen
     <div class="panel"><h2>Stock-wise charges</h2><div id="stockBreakdowns"></div><div class="actions"><button id="csvBtn">Export CSV</button><button id="printBtn" class="secondary">Print / Save PDF</button><button id="resetBtn" class="secondary">Clear</button></div></div>
   </section>
   <section class="panel">
-    <h2>Important accuracy note</h2>
+    <h2>Accuracy & privacy</h2>
     <p class="note">The PDF parser extracts text and then matches common trade-bill patterns. Always compare the extracted figures with the original PDF. Some brokers put tax totals at bill level rather than per stock, so the app distributes those shared charges by turnover; that distribution is not an official broker calculation. This version does not calculate capital-gains tax or income tax.</p>
   </section>
 </main>
@@ -109,7 +142,7 @@ function render(data){
    return items.map((trade,index)=>{
      const tradeShare=totalTurn?trade.turnover/totalTurn:0;
      const tradeCommon=commonTotal*tradeShare;
-     const rows=[['Transaction',trade.side],['Quantity',trade.qty.toLocaleString('en-IN')],['Rate',money(trade.rate)],['Trade value',money(trade.turnover)],['Brokerage',money(trade.brokerage)]];
+     const rows=[['Source PDF',trade.sourceFile||'Example data'],['Transaction',trade.side],['Quantity',trade.qty.toLocaleString('en-IN')],['Rate',money(trade.rate)],['Trade value',money(trade.turnover)],['Brokerage',money(trade.brokerage)]];
      Object.entries(charges).forEach(([name,value])=>rows.push([name,money(value*tradeShare)]));
      const total=trade.brokerage+tradeCommon;
      rows.push(['TOTAL CHARGES',money(total)]);
@@ -120,39 +153,64 @@ function render(data){
  data.calculated={commonTotal,buyTurn,sellTurn,buyBr,sellBr,net};
 }
 async function analyze(){
- const file=$('pdfFile').files[0]; if(!file){setStatus('Choose a PDF first.',true);return;}
+ const files=Array.from($('pdfFile').files||[]);
+ if(!files.length){setStatus('Choose at least one PDF first.',true);return;}
  if(!window.pdfjsLib){setStatus('PDF reader library did not load. Check internet connection and reload this page.',true);return;}
  try{
-  setStatus('Reading PDF…'); const buf=await file.arrayBuffer();const pdf=await pdfjsLib.getDocument({data:buf}).promise;let text='';
-  for(let p=1;p<=pdf.numPages;p++){const page=await pdf.getPage(p);const content=await page.getTextContent();const grouped={};for(const item of content.items){if(!item.str||!item.str.trim())continue;const y=Math.round(item.transform[5]);(grouped[y]||(grouped[y]=[])).push({x:item.transform[4],s:item.str.trim()});}text+=Object.keys(grouped).sort((a,b)=>b-a).map(y=>grouped[y].sort((a,b)=>a.x-b.x).map(o=>o.s).join(' ')).join('\n')+'\n';}
-  const rows=readTradeRows(text); const charges=parseCharges(text);
-  const netMatch=text.match(/Net Total Payable\s*\(-\)\s*\/?\s*Receivable\s*\(\+\)\s*For You\s+(-?[\d,]+(?:\.\d+)?)/i);
-  const bill=text.match(/Bill No\.?\s+([A-Z0-9]+)/i), date=text.match(/Trade Date\s+(\d{1,2}\/\d{1,2}\/\d{4})/i);
-  if(!rows.length){setStatus('Could not confidently detect stock rows. This PDF may be scanned or use a different layout. Try the example button to see how the report works.',true);return;}
-  render({rows,charges,net:netMatch?num(netMatch[1]):null,billNo:bill?bill[1]:'',tradeDate:date?date[1]:''});
-  setStatus(`Read ${pdf.numPages} page(s). Detected ${rows.length} buy/sell rows and ${Object.keys(charges).length} charge types. Check the figures against the PDF before relying on them.`);
+  let allRows=[], combinedCharges={}, billLabels=[], tradeDates=[], netSum=0, foundNetCount=0, failures=[];
+  for(let fi=0;fi<files.length;fi++){
+   const file=files[fi];
+   setStatus(`Reading file ${fi+1} of ${files.length}: ${file.name}`);
+   const buf=await file.arrayBuffer();
+   const pdf=await pdfjsLib.getDocument({data:buf}).promise;
+   let text='';
+   for(let pg=1;pg<=pdf.numPages;pg++){
+    const page=await pdf.getPage(pg), content=await page.getTextContent(), grouped={};
+    for(const item of content.items){
+     if(!item.str||!item.str.trim())continue;
+     const y=Math.round(item.transform[5]);
+     (grouped[y]||(grouped[y]=[])).push({x:item.transform[4],s:item.str.trim()});
+    }
+    text+=Object.keys(grouped).sort((a,b)=>Number(b)-Number(a)).map(y=>grouped[y].sort((a,b)=>a.x-b.x).map(o=>o.s).join(' ')).join('\n')+'\n';
+   }
+   const rows=readTradeRows(text);
+   if(!rows.length){failures.push(file.name+' (no trade rows detected)');continue;}
+   // Preserve source filename for audit; each PDF's bill-level charges are added once.
+   rows.forEach((r,i)=>{r.sourceFile=file.name;r.sourceRow=i+1;r.tradeKey=[file.name,r.isin||'',r.name,r.side,r.qty,r.rate,r.brokerage,r.gross].join('|');});
+   allRows.push(...rows);
+   const charges=parseCharges(text);
+   Object.entries(charges).forEach(([k,v])=>combinedCharges[k]=(combinedCharges[k]||0)+v);
+   const netMatch=text.match(/Net Total Payable\s*\(-\)\s*\/?\s*Receivable\s*\(\+\)\s*For You\s+(-?[\d,]+(?:\.\d+)?)/i);
+   if(netMatch){netSum+=num(netMatch[1]);foundNetCount++;}
+   const bill=text.match(/Bill No\.?\s+([A-Z0-9]+)/i), date=text.match(/Trade Date\s+(\d{1,2}\/\d{1,2}\/\d{4})/i);
+   billLabels.push(bill?bill[1]:file.name);
+   if(date)tradeDates.push(date[1]);
+  }
+  if(!allRows.length){setStatus('Could not detect trade rows in any selected PDF. Scanned PDFs may need OCR, or the layout may be unsupported.',true);return;}
+  // Exact repeated trade rows from separately selected files are flagged rather than silently removed.
+  const seen=new Set(), duplicates=[];
+  allRows.forEach(r=>{if(seen.has(r.tradeKey))duplicates.push(r);else seen.add(r.tradeKey);});
+  const data={rows:allRows,charges:combinedCharges,net:foundNetCount?netSum:null,billNo:files.length+' files · '+billLabels.join(', '),tradeDate:[...new Set(tradeDates)].join(', ')};
+  render(data);
+  let message=`Processed ${files.length} selected file(s). Detected ${allRows.length} trade rows and combined bill-level charges.`;
+  if(failures.length)message+=`\nCould not read trades from: ${failures.join(', ')}.`;
+  if(duplicates.length)message+=`\nWarning: ${duplicates.length} potentially duplicate trade row(s) detected across the selected PDFs. Check source files before relying on combined totals.`;
+  message+='\nCheck each stock and charge allocation against the source PDFs.';
+  setStatus(message,failures.length>0||duplicates.length>0);
  }catch(e){console.error(e);setStatus('Could not read PDF: '+e.message,true);}
-}
-function demo(){
- const rows=[
- {name:'AZAD ENGINEERING LIMITED',isin:'INE02IJ01035',side:'Sell',qty:20,rate:2988.5,brokerage:12,gross:59758,turnover:59770},
- {name:'AZAD ENGINEERING LIMITED',isin:'INE02IJ01035',side:'Sell',qty:20,rate:3010,brokerage:120.4,gross:60079.6,turnover:60200},
- {name:'AZAD ENGINEERING LIMITED',isin:'INE02IJ01035',side:'Buy',qty:20,rate:2965,brokerage:11.8,gross:59311.8,turnover:59300},
- {name:'MONEYVIEW LIMITED',isin:'INE0PTN01011',side:'Sell',qty:200,rate:64.5,brokerage:26,gross:12874,turnover:12900}
- ];
- // Turnover is price x quantity; gross credit/debit can be net of brokerage in the PDF.
- rows.forEach(r=>r.turnover=r.qty*r.rate);
- render({rows,charges:{'Security Transaction Tax':88,'Transaction Charges':5.9,'Round of Amount':-0.03,'Stamp Duty':2,'SEBI Charges':0.19,'CGST':15.87,'SGST':15.87},net:73272,billNo:'CAPOBL 00012033',tradeDate:'12/10/2026'});
- setStatus('Loaded sample values read from your uploaded PDF. This is a demo; it does not read the selected file.');
 }
 function exportCsv(){
  if(!output)return;
- const rows=[['Stock','Side','Quantity','Rate','Turnover','Brokerage','Allocated shared charges','Estimated total charges','Gross debit/credit','Net buy cost/sell proceeds']];
+ const rows=[['Source PDF','Stock','Side','Quantity','Rate','Turnover','Brokerage','Allocated shared charges','Estimated total charges','Gross debit/credit','Net buy cost/sell proceeds']];
  const total=output.rows.reduce((s,r)=>s+r.turnover,0), common=Object.values(output.charges).reduce((a,b)=>a+b,0);
- output.rows.forEach(r=>{const c=total?r.turnover/total*common:0;rows.push([r.name,r.side,r.qty,r.rate,r.turnover,r.brokerage,c,r.brokerage+c,r.gross,r.side==='Buy'?r.gross+c:r.gross-c]);});
+ output.rows.forEach(r=>{const c=total?r.turnover/total*common:0;rows.push([r.sourceFile||'',r.name,r.side,r.qty,r.rate,r.turnover,r.brokerage,c,r.brokerage+c,r.gross,r.side==='Buy'?r.gross+c:r.gross-c]);});
  const csv=rows.map(row=>row.map(x=>'"'+String(x).replace(/"/g,'""')+'"').join(',')).join('\r\n');
  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'}));a.download='trade-charge-breakdown.csv';a.click();URL.revokeObjectURL(a.href);
 }
-$('analyzeBtn').addEventListener('click',analyze);$('demoBtn').addEventListener('click',demo);$('csvBtn').addEventListener('click',exportCsv);$('printBtn').addEventListener('click',()=>window.print());$('resetBtn').addEventListener('click',()=>{output=null;$('results').classList.add('hidden');$('pdfFile').value='';setStatus('Cleared. Choose another PDF.');});
+const dropArea=document.querySelector('.drop');
+dropArea.addEventListener('dragover',e=>{e.preventDefault();dropArea.classList.add('dragover');});
+dropArea.addEventListener('dragleave',()=>dropArea.classList.remove('dragover'));
+dropArea.addEventListener('drop',e=>{e.preventDefault();dropArea.classList.remove('dragover');const files=Array.from(e.dataTransfer.files||[]).filter(f=>f.type==='application/pdf'||f.name.toLowerCase().endsWith('.pdf'));if(!files.length){setStatus('Drop PDF files only.',true);return;}const dt=new DataTransfer();files.forEach(f=>dt.items.add(f));$('pdfFile').files=dt.files;setStatus(`${files.length} PDF file(s) ready to analyze.`);});
+$('analyzeBtn').addEventListener('click',analyze);$('csvBtn').addEventListener('click',exportCsv);$('printBtn').addEventListener('click',()=>window.print());$('resetBtn').addEventListener('click',()=>{output=null;$('results').classList.add('hidden');$('pdfFile').value='';setStatus('Cleared. Choose another PDF.');});
 </script>
 </body></html>
