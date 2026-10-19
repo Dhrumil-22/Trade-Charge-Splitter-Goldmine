@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>TradeLedger — Stock Charge Analyzer</title>
+<title>TradeLedger — Stock Charge Analyzer (Corrected)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
 :root{--bg:#080b10;--panel:#10161f;--panel2:#0c1118;--line:#26313f;--text:#edf3f8;--muted:#8e9bab;--accent:#a3ffbf;--accent-ink:#07150c;--warn:#ffcc78}
@@ -46,9 +46,23 @@ h2{font-size:17px;letter-spacing:-.025em;margin:0 0 15px}
 .good{color:var(--accent)}
 .hidden{display:none}
 .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
-#stockBreakdowns>.panel{border-radius:14px}
-#stockBreakdowns h2{font-size:16px}
-#stockBreakdowns tr:last-child td{font-weight:800;color:var(--accent);border-bottom:0}
+#stockBreakdowns>.panel{border-radius:16px;border-color:#2a3948;overflow:hidden;box-shadow:0 10px 28px rgba(0,0,0,.18)}
+#stockBreakdowns .stock-head{padding:14px 16px;margin:-1px -1px 14px;background:linear-gradient(100deg,rgba(163,255,191,.10),rgba(15,23,32,.65));border-bottom:1px solid #334a40}
+#stockBreakdowns .stock-title{font-size:clamp(19px,2.5vw,25px);line-height:1.2;font-weight:850;letter-spacing:-.035em;color:#f4fff7;text-shadow:0 0 20px rgba(163,255,191,.12);margin:0}
+#stockBreakdowns .stock-title:before{content:"";display:inline-block;width:4px;height:1.05em;background:var(--accent);border-radius:9px;margin-right:10px;vertical-align:-.13em}
+#stockBreakdowns table{border-collapse:separate;border-spacing:0;min-width:0}
+#stockBreakdowns td{padding:12px 13px;transition:background .15s}
+#stockBreakdowns tbody tr:nth-child(odd) td{background:rgba(255,255,255,.012)}
+#stockBreakdowns tbody tr:hover td{background:rgba(163,255,191,.045)}
+#stockBreakdowns tr.trade-meta td{color:#c3d0df;background:#111c27;font-weight:750}
+#stockBreakdowns tr.key-metric td{background:rgba(163,255,191,.075);font-weight:750;color:#f1fff5}
+#stockBreakdowns tr.key-metric td:last-child{color:var(--accent);font-size:15px;font-variant-numeric:tabular-nums}
+#stockBreakdowns tr.total-charge td{border-top:1px solid #466451;background:rgba(163,255,191,.10);font-weight:850;color:#eaffef;padding-top:15px;padding-bottom:15px}
+#stockBreakdowns tr.total-charge td:last-child{font-size:17px;color:var(--accent);font-variant-numeric:tabular-nums}
+#stockBreakdowns tr.net-result td{font-weight:850;color:#f7fff9;background:linear-gradient(90deg,rgba(163,255,191,.14),rgba(163,255,191,.045));border-bottom:0;padding-top:16px;padding-bottom:16px}
+#stockBreakdowns tr.net-result td:last-child{font-size:18px;color:var(--accent);font-variant-numeric:tabular-nums}
+#stockBreakdowns .pill{font-size:10px;border-color:#466451;background:#111d18;color:#caffd8}
+@media(max-width:600px){#stockBreakdowns td{padding:10px 9px}#stockBreakdowns tr.key-metric td:last-child{font-size:14px}#stockBreakdowns tr.total-charge td:last-child,#stockBreakdowns tr.net-result td:last-child{font-size:16px}}
 @media(max-width:600px){main{padding:22px 12px 45px}.panel{padding:15px;border-radius:15px}.drop{padding:26px 12px}.brandtag{display:none}.metric b{font-size:18px}}
 @media print{body{background:white;color:#111}main{max-width:none;padding:0}.panel{box-shadow:none;background:white;border-color:#ddd;break-inside:avoid}.note,.sub{color:#555}button,.drop,#pdfFile{display:none!important}h1 span{color:#111}td,th{color:#111;border-color:#ddd}th{background:#eee}.metric{background:white;border-color:#ddd}.metric small{color:#555}.metric b{color:#111}}
 </style>
@@ -56,7 +70,7 @@ h2{font-size:17px;letter-spacing:-.025em;margin:0 0 15px}
 <body>
 <main>
   <div class="brandline"><span class="brandmark">TL</span><span class="brandname">TRADELEDGER</span><span class="brandtag">TRADE ANALYTICS</span></div><h1>Stock charge <span>analyzer.</span></h1>
-  <p class="sub">A clean, stock-by-stock breakdown of brokerage, taxes and transaction costs from your broker statements.</p>
+  <p class="sub">Stock-by-stock charge breakdown with column-aware Buy/Sell detection, transaction-type STT, buy-side stamp duty, eligible-charge GST, and bill-level allocations. Supports multiple PDF files.</p>
   <section class="panel">
     <div class="drop">
       <div class="upload-icon">↥</div><strong>Import contract notes</strong>
@@ -71,8 +85,8 @@ h2{font-size:17px;letter-spacing:-.025em;margin:0 0 15px}
     <div class="panel"><h2>Stock-wise charges</h2><div id="stockBreakdowns"></div><div class="actions"><button id="csvBtn">Export CSV</button><button id="printBtn" class="secondary">Print / Save PDF</button><button id="resetBtn" class="secondary">Clear</button></div></div>
   </section>
   <section class="panel">
-    <h2>Accuracy & privacy</h2>
-    <p class="note">The PDF parser extracts text and then matches common trade-bill patterns. Always compare the extracted figures with the original PDF. Some brokers put tax totals at bill level rather than per stock, so the app distributes those shared charges by turnover; that distribution is not an official broker calculation. This version does not calculate capital-gains tax or income tax.</p>
+    <h2>Calculation rules & privacy</h2>
+    <p class="note">STT is calculated by transaction type where recognized (J intraday: 0.025% on sell only; D delivery: 0.1% on both buy and sell). Stamp duty is allocated only to buy rows. Transaction and SEBI charges are allocated by turnover; bill-level GST is allocated by eligible brokerage + transaction + SEBI service-charge base. Round-off is an estimated turnover-based allocation. These per-trade splits are estimates because the broker reports some charges only at bill level; compare totals with the source contract note. This tool does not calculate capital-gains tax or income tax. PDF text is processed locally in your browser.</p>
   </section>
 </main>
 <script>
@@ -93,31 +107,48 @@ function readTradeRows(text){
     const l=lines[i];
     const isin=l.match(/\b(IN[A-Z0-9]{9,11})\b/);
     if(isin){currentIsin=isin[1]; const tail=l.slice((isin.index||0)+isin[0].length).trim(); let next=lines[i+1]||''; if(tail && !/^(NSE|BSE)\b/i.test(tail)) currentName=tail; else if(next && !/^(NSE|BSE)\b/i.test(next)) currentName=next;}
-    const m=l.match(/^(NSE|BSE)\s+([A-Z])\s+([\d,]+(?:\.\d+)?)\s+([\d,]+(?:\.\d+)?)\s+([\d,]+(?:\.\d+)?)\s+([\d,]+(?:\.\d+)?)(?:\s+([\d,]+(?:\.\d+)?)\s+([\d,]+(?:\.\d+)?)\s+([\d,]+(?:\.\d+)?)\s+([\d,]+(?:\.\d+)?))?/i);
-    if(m && currentName){
-      const vals=m.slice(3).map(num);
-      const side = vals.length>=8 && vals[4]>0 ? 'mixed' : 'sell';
-      // Bill layout is sell qty/rate/brokerage/credit then buy qty/rate/brokerage/debit.
+    const positioned=l.match(/^TRADE_ROW\s+(NSE|BSE)\s+([A-Z])\s+SELL\s*(.*?)\s+BUY\s*(.*)$/i);
+    const legacy=l.match(/^(NSE|BSE)\s+([A-Z])\s+([\d,]+(?:\.\d+)?)\s+([\d,]+(?:\.\d+)?)\s+([\d,]+(?:\.\d+)?)\s+([\d,]+(?:\.\d+)?)(?:\s+([\d,]+(?:\.\d+)?)\s+([\d,]+(?:\.\d+)?)\s+([\d,]+(?:\.\d+)?)\s+([\d,]+(?:\.\d+)?))?/i);
+    if(positioned && currentName){
+      const transactionCode=positioned[2].toUpperCase();
+      const sellVals=positioned[3].trim()?positioned[3].trim().split(/\s+/).map(num):[];
+      const buyVals=positioned[4].trim()?positioned[4].trim().split(/\s+/).map(num):[];
+      if(sellVals.length>=4 && sellVals[0]>0){const sell={qty:sellVals[0],rate:sellVals[1],brokerage:sellVals[2],gross:sellVals[3]};rows.push({name:currentName,isin:currentIsin,transactionCode,side:'Sell',...sell,turnover:sell.qty*sell.rate});}
+      if(buyVals.length>=4 && buyVals[0]>0){const buy={qty:buyVals[0],rate:buyVals[1],brokerage:buyVals[2],gross:buyVals[3]};rows.push({name:currentName,isin:currentIsin,transactionCode,side:'Buy',...buy,turnover:buy.qty*buy.rate});}
+    } else if(legacy && currentName){
+      // Fallback for extracted text where the original column coordinates are unavailable.
+      const vals=legacy.slice(3).map(num), transactionCode=legacy[2].toUpperCase();
       const sell={qty:vals[0]||0,rate:vals[1]||0,brokerage:vals[2]||0,gross:vals[3]||0};
       const buy={qty:vals[4]||0,rate:vals[5]||0,brokerage:vals[6]||0,gross:vals[7]||0};
-      if(sell.qty) rows.push({name:currentName,isin:currentIsin,side:'Sell',...sell,turnover:sell.qty*sell.rate});
-      if(buy.qty) rows.push({name:currentName,isin:currentIsin,side:'Buy',...buy,turnover:buy.qty*buy.rate});
+      if(sell.qty) rows.push({name:currentName,isin:currentIsin,transactionCode,side:'Sell',...sell,turnover:sell.qty*sell.rate});
+      if(buy.qty) rows.push({name:currentName,isin:currentIsin,transactionCode,side:'Buy',...buy,turnover:buy.qty*buy.rate});
     }
   }
   return rows;
 }
 function parseCharges(text){
+  // IMPORTANT: never let \s+ cross a newline when parsing bill-level charges.
+  // PDF text extraction can put a label at the end of one line and unrelated
+  // numeric content on the next line; the old regex could read that number as GST.
   const labels=[
-    ['Security Transaction Tax',/Security Transaction Tax\s+(-?[\d,]+(?:\.\d+)?)/i],
-    ['Transaction Charges',/Transaction Charges\s+(-?[\d,]+(?:\.\d+)?)/i],
-    ['Round of Amount',/Round of Amount\s+(-?[\d,]+(?:\.\d+)?)/i],
-    ['Stamp Duty',/Stamp Duty\s+(-?[\d,]+(?:\.\d+)?)/i],
-    ['SEBI Charges',/Sebi Charges\s+(-?[\d,]+(?:\.\d+)?)/i],
-    ['CGST',/CGST\s+(-?[\d,]+(?:\.\d+)?)/i],
-    ['SGST',/SGST\s+(-?[\d,]+(?:\.\d+)?)/i],
-    ['IGST',/IGST\s+(-?[\d,]+(?:\.\d+)?)/i]
+    ['Security Transaction Tax',/Security Transaction Tax[ \t:₹]*(-?[\d,]+(?:\.\d+)?)/i],
+    ['Transaction Charges',/Transaction Charges[ \t:₹]*(-?[\d,]+(?:\.\d+)?)/i],
+    ['Round of Amount',/Round of Amount[ \t:₹]*(-?[\d,]+(?:\.\d+)?)/i],
+    ['Stamp Duty',/Stamp Duty[ \t:₹]*(-?[\d,]+(?:\.\d+)?)/i],
+    ['SEBI Charges',/Sebi Charges[ \t:₹]*(-?[\d,]+(?:\.\d+)?)/i],
+    ['CGST',/\bCGST\b[ \t:₹]*(-?[\d,]+(?:\.\d+)?)/i],
+    ['SGST',/\bSGST\b[ \t:₹]*(-?[\d,]+(?:\.\d+)?)/i],
+    ['IGST',/\bIGST\b[ \t:₹]*(-?[\d,]+(?:\.\d+)?)/i]
   ];
-  const charges={}; for(const [name,re] of labels){const m=text.match(re); if(m)charges[name]=num(m[1]);}
+  const lines=text.split(/\r?\n/), charges={};
+  for(const [name,re] of labels){
+    for(const line of lines){
+      if(!new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'i').test(line)) continue;
+      const m=line.match(re);
+      // Accept a value only when it occurs on the same extracted line as its label.
+      if(m){const value=num(m[1]); if(['CGST','SGST','IGST'].includes(name)&&value<0) break; charges[name]=value;break;}
+    }
+  }
   return charges;
 }
 function render(data){
@@ -132,24 +163,72 @@ function render(data){
  $('billMeta').textContent=(data.billNo||'Bill number not detected')+(data.tradeDate?' · '+data.tradeDate:'');
  const metrics=[['Buy turnover',money(buyTurn)],['Sell turnover',money(sellTurn)],['Buy brokerage',money(buyBr)],['Sell brokerage',money(sellBr)],['Total shared charges',money(commonTotal)],['Net receivable / (payable)',money(net)]];
  $('summaryCards').innerHTML=metrics.map(([a,b])=>`<div class="metric"><small>${escapeHtml(a)}</small><b>${escapeHtml(b)}</b></div>`).join('');
- $('summaryNote').textContent=`Detected ${data.rows.length} trade rows. Review each stock and side below.`;
- const groups={}; data.rows.forEach(r=>{const key=r.name+'|'+r.side;(groups[key]||(groups[key]=[])).push(r);});
- $('stockBreakdowns').innerHTML=Object.values(groups).map(items=>{
-   const r=items[0], turnover=items.reduce((s,x)=>s+x.turnover,0), brokerage=items.reduce((s,x)=>s+x.brokerage,0);
-   const share=totalTurn?turnover/totalTurn:0;
-   const allocated=commonTotal*share;
-   // Keep every PDF trade row separate: do not merge different prices / transaction codes.
-   return items.map((trade,index)=>{
-     const tradeShare=totalTurn?trade.turnover/totalTurn:0;
-     const tradeCommon=commonTotal*tradeShare;
-     const rows=[['Source PDF',trade.sourceFile||'Example data'],['Transaction',trade.side],['Quantity',trade.qty.toLocaleString('en-IN')],['Rate',money(trade.rate)],['Trade value',money(trade.turnover)],['Brokerage',money(trade.brokerage)]];
-     Object.entries(charges).forEach(([name,value])=>rows.push([name,money(value*tradeShare)]));
-     const total=trade.brokerage+tradeCommon;
-     rows.push(['TOTAL CHARGES',money(total)]);
-     rows.push([trade.side==='Buy'?'Estimated buy cost incl. charges':'Estimated sell proceeds after charges',money(trade.side==='Buy'?trade.gross+tradeCommon:trade.gross-tradeCommon)]);
-     return `<div class="panel" style="background:#0d141b;margin:12px 0"><div class="section-title"><h2 style="margin:0">${escapeHtml(trade.name||r.name)}</h2><span class="pill">${trade.side.toUpperCase()} · Trade ${index+1}</span></div><div class="tablewrap"><table style="min-width:0"><thead><tr><th style="text-align:left">Charge / detail</th><th>Amount</th></tr></thead><tbody>${rows.map(([k,v])=>`<tr><td style="text-align:left">${escapeHtml(k)}</td><td>${escapeHtml(v)}</td></tr>`).join('')}</tbody></table></div></div>`;
-   }).join('');
- }).join('');
+ $('summaryNote').textContent=`Detected ${data.rows.length} trade rows. Charges are calculated by transaction type where possible; bill-level charges are allocated within each source PDF. Check the rounding note against your contract note.`;
+ // Calculate allocations separately per source PDF. Never spread one PDF's charges over trades from another PDF.
+ const byFile={};
+ data.rows.forEach(r=>{const key=r.sourceFile||'Unknown source';(byFile[key]||(byFile[key]=[])).push(r);});
+ const breakdowns=[];
+ Object.entries(byFile).forEach(([file,items])=>{
+   const billCharges=items[0].billCharges||charges;
+   const billTurn=items.reduce((s,r)=>s+r.turnover,0);
+   const buyItems=items.filter(r=>r.side==='Buy'), sellItems=items.filter(r=>r.side==='Sell');
+   const buyTurnFile=buyItems.reduce((s,r)=>s+r.turnover,0), sellTurnFile=sellItems.reduce((s,r)=>s+r.turnover,0);
+   const txnTotal=billCharges['Transaction Charges']||0, sebiTotal=billCharges['SEBI Charges']||0;
+   const cgstTotal=billCharges['CGST']||0, sgstTotal=billCharges['SGST']||0, igstTotal=billCharges['IGST']||0;
+   const roundTotal=billCharges['Round of Amount']||0, stampTotal=billCharges['Stamp Duty']||0;
+   const sttTotal=billCharges['Security Transaction Tax']||0;
+   // First allocate turnover-based exchange/regulatory charges within this PDF only.
+   const enriched=items.map(r=>{
+     const share=billTurn?r.turnover/billTurn:0;
+     const transactionCharges=txnTotal*share;
+     const sebiCharges=sebiTotal*share;
+     const roundOff=roundTotal*share;
+     // STT rules: J intraday sale = 0.025% on sell only; D delivery = 0.1% on both buy and sell.
+     // If transaction code is unknown, allocate the contract-note STT total to sell rows and do not guess buy-side STT.
+     let stt=0;
+     if(r.transactionCode==='J'){
+       if(r.side==='Sell') stt=r.turnover*0.00025;
+     } else if(r.transactionCode==='D'){
+       stt=r.turnover*0.001;
+     } else if(r.side==='Sell'){
+       stt=(sellTurnFile?sttTotal*r.turnover/sellTurnFile:0);
+     }
+     // Stamp duty is on purchases, never on a sell row. Use the bill's actual stamp-duty total,
+     // allocated across buy trades by buy turnover to retain the broker's bill-level rounding.
+     const stampDuty=r.side==='Buy'?(buyTurnFile?stampTotal*r.turnover/buyTurnFile:0):0;
+     const serviceBase=Math.max(0,r.brokerage+transactionCharges+sebiCharges);
+     return {...r,transactionCharges,sebiCharges,roundOff,stt,stampDuty,serviceBase};
+   });
+   const totalServiceBase=enriched.reduce((s,r)=>s+r.serviceBase,0);
+   // Guard against malformed PDF text where a number from a different row is mistaken for GST.
+   // A single CGST/SGST amount should ordinarily be near 9% of taxable service charges.
+   const plausibleGst=max=>v=>Number.isFinite(v)&&v>=0&&v<=max;
+   const safeCgst=plausibleGst(totalServiceBase*0.12)(cgstTotal)?cgstTotal:0;
+   const safeSgst=plausibleGst(totalServiceBase*0.12)(sgstTotal)?sgstTotal:0;
+   const safeIgst=plausibleGst(totalServiceBase*0.22)(igstTotal)?igstTotal:0;
+   enriched.forEach(r=>{
+     // Allocate valid bill-level GST by eligible service-charge base. If extraction is missing
+     // or implausible, estimate using 9% CGST + 9% SGST (or 18% IGST) and show a safe amount.
+     r.cgst=safeCgst?safeCgst*(totalServiceBase?r.serviceBase/totalServiceBase:0):(safeIgst?0:r.serviceBase*0.09);
+     r.sgst=safeSgst?safeSgst*(totalServiceBase?r.serviceBase/totalServiceBase:0):(safeIgst?0:r.serviceBase*0.09);
+     r.igst=safeIgst?safeIgst*(totalServiceBase?r.serviceBase/totalServiceBase:0):0;
+   });
+   enriched.forEach((trade,index)=>{
+     const rows=[['Source PDF',trade.sourceFile||'Example data'],['Transaction',trade.side],['Transaction code',trade.transactionCode||'Not detected'],['Quantity',trade.qty.toLocaleString('en-IN')],['Rate',money(trade.rate)],['Trade value',money(trade.turnover)],['Brokerage',money(trade.brokerage)],['Security Transaction Tax',money(trade.stt)],['Transaction Charges (allocated)',money(trade.transactionCharges)],['SEBI Charges (allocated)',money(trade.sebiCharges)]];
+     if(trade.side==='Buy') rows.push(['Stamp Duty (buy-side only)',money(trade.stampDuty)]);
+     if(trade.side==='Sell') rows.push(['Stamp Duty (sell)',money(0)]);
+     if(cgstTotal||!igstTotal) rows.push(['CGST (allocated by eligible service charges)',money(trade.cgst)]);
+     if(sgstTotal||!igstTotal) rows.push(['SGST (allocated by eligible service charges)',money(trade.sgst)]);
+     if(igstTotal) rows.push(['IGST (allocated by eligible service charges)',money(trade.igst)]);
+     rows.push(['Round-off (bill-level allocation)',money(trade.roundOff)]);
+     const extra=trade.stt+trade.transactionCharges+trade.sebiCharges+trade.stampDuty+trade.cgst+trade.sgst+trade.igst+trade.roundOff;
+     const total=trade.brokerage+extra;
+     rows.push(['TOTAL CHARGES incl. brokerage',money(total)]);
+     rows.push([trade.side==='Buy'?'Estimated buy cost after charges':'Estimated sell proceeds after charges',money(trade.side==='Buy'?trade.gross+extra:trade.gross-extra)]);
+     breakdowns.push(`<div class="panel"><div class="section-title stock-head"><h2 class="stock-title">${escapeHtml(trade.name)}</h2><span class="pill">${trade.side.toUpperCase()} · ${escapeHtml(trade.transactionCode||'Code ?')} · Trade ${index+1}</span></div><div class="tablewrap"><table><thead><tr><th style="text-align:left">Charge / detail</th><th>Amount</th></tr></thead><tbody>${rows.map(([k,v])=>{const cls=/^Transaction$|^Transaction code$/.test(k)?'trade-meta':/^(Quantity|Rate|Trade value)$/.test(k)?'key-metric':/^TOTAL CHARGES incl\. brokerage$/.test(k)?'total-charge':/^Estimated (buy cost|sell proceeds) after charges$/.test(k)?'net-result':'';return `<tr class="${cls}"><td style="text-align:left">${escapeHtml(k)}</td><td>${escapeHtml(v)}</td></tr>`}).join('')}</tbody></table></div></div>`);
+   });
+ });
+ $('stockBreakdowns').innerHTML=breakdowns.join('');
  data.calculated={commonTotal,buyTurn,sellTurn,buyBr,sellBr,net};
 }
 async function analyze(){
@@ -171,14 +250,30 @@ async function analyze(){
      const y=Math.round(item.transform[5]);
      (grouped[y]||(grouped[y]=[])).push({x:item.transform[4],s:item.str.trim()});
     }
-    text+=Object.keys(grouped).sort((a,b)=>Number(b)-Number(a)).map(y=>grouped[y].sort((a,b)=>a.x-b.x).map(o=>o.s).join(' ')).join('\n')+'\n';
+    const pageWidth=page.view[2]||1;
+    text+=Object.keys(grouped).sort((a,b)=>Number(b)-Number(a)).map(y=>{
+     const lineItems=grouped[y].sort((a,b)=>a.x-b.x);
+     // Preserve the PDF column position for buy-only/sell-only rows. PDF text extraction
+     // omits empty cells, so a buy-only row can otherwise look exactly like a sell row.
+     if(lineItems.length>=3 && /^(NSE|BSE)$/i.test(lineItems[0].s) && /^[A-Z]$/i.test(lineItems[1].s)){
+       const exchange=lineItems[0].s.toUpperCase(), code=lineItems[1].s.toUpperCase();
+       const sellVals=[], buyVals=[];
+       for(const item of lineItems.slice(2)){
+         if(!/^-?[\d,]+(?:\.\d+)?$/.test(item.s.replace(/[₹\s]/g,''))) continue;
+         const value=item.s.replace(/[₹\s]/g,'');
+         (item.x/pageWidth>=0.60?buyVals:sellVals).push(value);
+       }
+       if(sellVals.length || buyVals.length) return `TRADE_ROW ${exchange} ${code} SELL ${sellVals.join(' ')} BUY ${buyVals.join(' ')}`;
+     }
+     return lineItems.map(o=>o.s).join(' ');
+    }).join('\n')+'\n';
    }
    const rows=readTradeRows(text);
    if(!rows.length){failures.push(file.name+' (no trade rows detected)');continue;}
    // Preserve source filename for audit; each PDF's bill-level charges are added once.
-   rows.forEach((r,i)=>{r.sourceFile=file.name;r.sourceRow=i+1;r.tradeKey=[file.name,r.isin||'',r.name,r.side,r.qty,r.rate,r.brokerage,r.gross].join('|');});
-   allRows.push(...rows);
    const charges=parseCharges(text);
+   rows.forEach((r,i)=>{r.sourceFile=file.name;r.sourceRow=i+1;r.billCharges=charges;r.tradeKey=[file.name,r.isin||'',r.name,r.side,r.transactionCode,r.qty,r.rate,r.brokerage,r.gross].join('|');});
+   allRows.push(...rows);
    Object.entries(charges).forEach(([k,v])=>combinedCharges[k]=(combinedCharges[k]||0)+v);
    const netMatch=text.match(/Net Total Payable\s*\(-\)\s*\/?\s*Receivable\s*\(\+\)\s*For You\s+(-?[\d,]+(?:\.\d+)?)/i);
    if(netMatch){netSum+=num(netMatch[1]);foundNetCount++;}
@@ -201,9 +296,28 @@ async function analyze(){
 }
 function exportCsv(){
  if(!output)return;
- const rows=[['Source PDF','Stock','Side','Quantity','Rate','Turnover','Brokerage','Allocated shared charges','Estimated total charges','Gross debit/credit','Net buy cost/sell proceeds']];
- const total=output.rows.reduce((s,r)=>s+r.turnover,0), common=Object.values(output.charges).reduce((a,b)=>a+b,0);
- output.rows.forEach(r=>{const c=total?r.turnover/total*common:0;rows.push([r.sourceFile||'',r.name,r.side,r.qty,r.rate,r.turnover,r.brokerage,c,r.brokerage+c,r.gross,r.side==='Buy'?r.gross+c:r.gross-c]);});
+ // Export the same charge logic displayed in the report by extracting each rendered trade card.
+ const rows=[['Source PDF','Stock','Side','Transaction code','Quantity','Rate','Trade value','Brokerage','STT','Transaction charges','SEBI charges','Stamp duty','CGST','SGST','IGST','Round-off allocation','Total charges incl brokerage','Net buy cost / sell proceeds']];
+ const byFile={};
+ output.rows.forEach(r=>{const key=r.sourceFile||'Unknown source';(byFile[key]||(byFile[key]=[])).push(r);});
+ Object.values(byFile).forEach(items=>{
+   const ch=items[0].billCharges||output.charges, turnover=items.reduce((s,r)=>s+r.turnover,0), buy=items.filter(r=>r.side==='Buy'), sell=items.filter(r=>r.side==='Sell');
+   const buyTurn=buy.reduce((s,r)=>s+r.turnover,0), sellTurn=sell.reduce((s,r)=>s+r.turnover,0);
+   const service=items.map(r=>({r,txn:(ch['Transaction Charges']||0)*(turnover?r.turnover/turnover:0),sebi:(ch['SEBI Charges']||0)*(turnover?r.turnover/turnover:0)}));
+   const serviceTotal=service.reduce((s,x)=>s+x.r.brokerage+x.txn+x.sebi,0);
+   const rawCgst=ch['CGST']||0, rawSgst=ch['SGST']||0, rawIgst=ch['IGST']||0;
+   const safeCgst=rawCgst>=0&&rawCgst<=serviceTotal*.12?rawCgst:0;
+   const safeSgst=rawSgst>=0&&rawSgst<=serviceTotal*.12?rawSgst:0;
+   const safeIgst=rawIgst>=0&&rawIgst<=serviceTotal*.22?rawIgst:0;
+   service.forEach(({r,txn,sebi})=>{
+     const stt=r.transactionCode==='J'?(r.side==='Sell'?r.turnover*.00025:0):r.transactionCode==='D'?r.turnover*.001:(r.side==='Sell'?(sellTurn?(ch['Security Transaction Tax']||0)*r.turnover/sellTurn:0):0);
+     const stamp=r.side==='Buy'?(buyTurn?(ch['Stamp Duty']||0)*r.turnover/buyTurn:0):0;
+     const base=r.brokerage+txn+sebi, cgst=safeCgst?safeCgst*(serviceTotal?base/serviceTotal:0):(safeIgst?0:base*.09), sgst=safeSgst?safeSgst*(serviceTotal?base/serviceTotal:0):(safeIgst?0:base*.09), igst=safeIgst*(serviceTotal?base/serviceTotal:0);
+     const roundoff=(ch['Round of Amount']||0)*(turnover?r.turnover/turnover:0);
+     const extra=stt+txn+sebi+stamp+cgst+sgst+igst+roundoff, total=r.brokerage+extra;
+     rows.push([r.sourceFile||'',r.name,r.side,r.transactionCode||'',r.qty,r.rate,r.turnover,r.brokerage,stt,txn,sebi,stamp,cgst,sgst,igst,roundoff,total,r.side==='Buy'?r.gross+extra:r.gross-extra]);
+   });
+ });
  const csv=rows.map(row=>row.map(x=>'"'+String(x).replace(/"/g,'""')+'"').join(',')).join('\r\n');
  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'}));a.download='trade-charge-breakdown.csv';a.click();URL.revokeObjectURL(a.href);
 }
